@@ -13,7 +13,7 @@ class SurveyorAgent:
 
     def resolve_import(self, import_str: str, base_dir: str, current_file_path: str) -> Optional[str]:
         """Resolves a python import string to a relative file path."""
-        # This is a simplified resolver for the interim
+        # This is a simplified resolver 
         parts = import_str.split('.')
         # Check for relative imports
         if import_str.startswith('.'):
