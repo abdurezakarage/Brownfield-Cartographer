@@ -12,26 +12,46 @@ class SurveyorAgent:
         self.analyzer = TreeSitterAnalyzer()
 
     def resolve_import(self, import_str: str, base_dir: str, current_file_path: str) -> Optional[str]:
-        """Resolves a python import string to a relative file path."""
-        # This is a simplified resolver 
-        parts = import_str.split('.')
-        # Check for relative imports
-        if import_str.startswith('.'):
-            # Very basic handling of relative imports
-            return None 
+        """Resolves a python import string to a relative file path handling relative dots."""
+        import_str = import_str.strip()
+        module_path = ""
         
-        # Check potential file paths
-        potential_rel_path = os.path.join(*parts) + ".py"
-        full_path = os.path.join(base_dir, potential_rel_path)
+        # 1. Extract module path from raw statement
+        if import_str.startswith("import "):
+            module_path = import_str.split("import ")[1].split(" as ")[0].strip()
+        elif import_str.startswith("from "):
+            module_path = import_str.split("from ")[1].split(" import ")[0].strip()
+        else:
+            module_path = import_str
+
+        # 2. Count leading dots for relative imports
+        dots = 0
+        while module_path.startswith('.'):
+            dots += 1
+            module_path = module_path[1:]
         
-        if os.path.exists(full_path):
-            return os.path.relpath(full_path, base_dir)
+        parts = module_path.split('.') if module_path else []
         
-        # Check if it's a directory (init file)
-        potential_dir_path = os.path.join(*parts, "__init__.py")
-        full_dir_path = os.path.join(base_dir, potential_dir_path)
-        if os.path.exists(full_dir_path):
-            return os.path.relpath(full_dir_path, base_dir)
+        # 3. Determine base search directory
+        if dots > 0:
+            # Relative: dots=1 means current dir, dots=2 means parent, etc.
+            search_base = os.path.dirname(os.path.abspath(current_file_path))
+            for _ in range(dots - 1):
+                search_base = os.path.dirname(search_base)
+        else:
+            # Absolute: relative to repo root
+            search_base = os.path.abspath(base_dir)
+
+        # 4. Check potential file/dir paths
+        potential_base = os.path.join(search_base, *parts)
+        
+        # Candidate 1: module.py
+        if os.path.exists(potential_base + ".py"):
+            return os.path.relpath(potential_base + ".py", base_dir)
+            
+        # Candidate 2: module/__init__.py
+        if os.path.exists(os.path.join(potential_base, "__init__.py")):
+            return os.path.relpath(os.path.join(potential_base, "__init__.py"), base_dir)
             
         return None
 
@@ -99,6 +119,13 @@ class SurveyorAgent:
         ]
         return candidates
 
+    def detect_circular_dependencies(self) -> List[List[str]]:
+        """Detects circular import cycles in the graph."""
+        try:
+            return list(nx.simple_cycles(self.storage.graph))
+        except Exception:
+            return []
+
     def run_analysis(self, repo_path: str) -> Dict[str, Any]:
         self.survey_repository(repo_path)
         
@@ -106,15 +133,23 @@ class SurveyorAgent:
         pr = self.get_pagerank()
         vel = self.analyze_git_velocity(repo_path)
         dead_candidates = self.detect_dead_code_candidates()
+        cycles = self.detect_circular_dependencies()
         
         # Attach metrics back to the graph nodes
         for node_id in self.storage.graph.nodes:
             self.storage.graph.nodes[node_id]['pagerank'] = pr.get(node_id, 0.0)
             self.storage.graph.nodes[node_id]['change_velocity_30d'] = float(vel.get(node_id, 0))
             self.storage.graph.nodes[node_id]['is_dead_code_candidate'] = node_id in dead_candidates
+            
+        # Flag nodes involved in cycles
+        for cycle in cycles:
+            for node_id in cycle:
+                if node_id in self.storage.graph.nodes:
+                    self.storage.graph.nodes[node_id]['has_circular_dependency'] = True
 
         return {
             "pagerank": pr,
             "velocity": vel,
-            "dead_code": dead_candidates
+            "dead_code": dead_candidates,
+            "circular_dependencies": cycles
         }

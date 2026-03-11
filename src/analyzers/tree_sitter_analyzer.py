@@ -22,9 +22,20 @@ class TreeSitterAnalyzer:
         if tree_sitter_languages:
             for ext, lang_name in self.languages.items():
                 try:
+                    # Try using tree_sitter_languages first (modern/bundled way)
                     self.parsers[lang_name] = tree_sitter_languages.get_parser(lang_name)
-                except Exception as e:
-                    print(f"Warning: Could not load parser for {lang_name}: {e}")
+                except Exception:
+                    # Fallback: Try importing tree_sitter_[lang] directly (new tree-sitter style)
+                    try:
+                        import importlib
+                        lang_mod = importlib.import_module(f"tree_sitter_{lang_name}")
+                        from tree_sitter import Language, Parser
+                        lang_obj = Language(lang_mod.language())
+                        parser = Parser(lang_obj)
+                        self.parsers[lang_name] = parser
+                    except Exception as e:
+                        print(f"Warning: Could not load parser for {lang_name}: {e}")
+
 
     def parse_file(self, file_path: str) -> Dict[str, Any]:
         ext = os.path.splitext(file_path)[1].lower()
@@ -47,18 +58,28 @@ class TreeSitterAnalyzer:
             "classes": []
         }
       
-        # Example Query-based extraction for Python (if tree_sitter supports it here)
         if lang == "python":
-            query_str = """
-            (import_from_statement) @import
-            (import_statement) @import
-            (function_definition name: (identifier) @func_name) @func_def
-            (class_definition name: (identifier) @class_name) @class_def
-            """
-            # Implementation would go here
-            pass
+            try:
+                # Use Query for high-depth extraction
+                query_str = """
+                (import_from_statement) @import
+                (import_statement) @import
+                (function_definition 
+                    name: (identifier) @func_name
+                    parameters: (parameters) @func_params) @func_def
+                (class_definition 
+                    name: (identifier) @class_name
+                    superclasses: (argument_list (identifier) @base_class)? ) @class_def
+                """
+                query = self.parsers[lang].language.query(query_str)
+                captures = query.captures(tree.root_node)
+                
+                # Process captures to build structured results
+                # (Simplification: we still use the walker for now but can extend this)
+            except Exception as e:
+                print(f"Query error: {e}")
             
-        # Placeholder for demonstration of structural extraction
+        # Fallback/Primary extraction via traversal
         cursor = tree.walk()
         self._traverse(cursor, content, results)
         return results
