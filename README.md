@@ -7,23 +7,33 @@ The Brownfield Cartographer is a specialized tool designed to map and analyze co
 This repository contains the core infrastructure 
 
 ### 1. Knowledge Graph Data Models & Storage Layer
-- **Pydantic Schemas**: Located in `src/models/graph_models.py`, defining typed `NodeBase`, `EdgeBase`, and `KnowledgeGraphData`.
-- **Storage Layer**: Located in `src/graph/storage.py`, providing a `GraphStorage` wrapper for NetworkX with JSON serialization/deserialization.
+- **Rich Pydantic Schemas**: Defined in `src/models/graph_models.py` with analytical fields: `change_velocity_30d`, `is_dead_code_candidate`, `purpose_statement`, and `domain_cluster`.
+- **Advanced Storage Layer**: `src/graph/storage.py` provides a typed NetworkX wrapper with full JSON serialization/deserialization, preserving all analytical metadata.
 
 ### 2. Multi-Language AST Parsing
-- **Analyzer**: `src/analyzers/tree_sitter_analyzer.py` utilizes `tree-sitter` to parse multiple languages (Python, JS, etc.) and extract structural elements like imports, function definitions, and class definitions.
+- **Analyzer**: `src/analyzers/tree_sitter_analyzer.py` utilizes `tree-sitter` for high-depth parsing.
+- **Python Depth**: Extracts function signatures, class inheritance (base classes), and decorators.
+- **YAML Config Parsing**: `src/analyzers/yaml_analyzer.py` extracts pipeline hierarchies and dependencies from configuration files.
 
-### 3. SQL Dependency Extraction
-- **SQL Analyzer**: `src/analyzers/sql_analyzer.py` uses `sqlglot` to extract table-level dependencies (sources and targets) with multi-dialect support.
+### 3. SQL & dbt Dependency Extraction
+- **SQL Analyzer**: `src/analyzers/sql_analyzer.py` uses `sqlglot` for robust lineage extraction.
+- **dbt Support**: Built-in regex-based pattern recognition for dbt `ref()` and `source()` calls.
+- **Target/Source Distinction**: Automatically distinguishes between read and write operations in queries.
 
-### 4. Surveyor Agent
-- **Capabilities**: Located in `src/agents/surveyor.py`. It constructs module graphs, calculates PageRank for component importance, analyzes Git velocity for hotspots, and identifies potential dead code.
+### 4. Surveyor Agent (Structural Analysis)
+- **Module Graph**: Constructs a complete import graph with automated relative path resolution.
+- **Analytical Insights**: Calculates PageRank, 30-day git velocity, and detects dead code candidates/circular dependencies.
+- **Enriched Nodes**: Analytical results are attached directly to the graph nodes for downstream use.
 
-### 5. Hydrologist Agent
-- **Capabilities**: Located in `src/agents/hydrologist.py`. It builds unified data lineage DAGs and supports impact analysis queries such as `blast_radius`, `find_sources`, and `find_sinks`.
+### 5. Hydrologist Agent (Data Lineage)
+- **Unified Lineage**: Merges Python data flow, SQL dependencies, and YAML pipeline topology into a single DAG.
+- **Graph Queries**: Supports `blast_radius` (BFS/DFS traversal), `find_sources`, and `find_sinks`.
+- **Edge Metadata**: Edges carry transformation types and source file references.
 
 ### 6. Pipeline Orchestration & CLI
-- **Entry Point**: `src/cli.py` provides a command-line interface to point the tool at a repository, sequence the agents, and serialize results to an output directory.
+- **Automated Workflow**:Sequences Surveyor and Hydrologist with a single command.
+- **Remote Support**: CLI accepts GitHub URLs and automatically clones repositories for analysis.
+- **Robust Serialization**: Writes both `survey_graph.json` and `lineage_graph.json` to a configurable output directory.
 
 ## Usage
 

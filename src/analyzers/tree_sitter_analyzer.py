@@ -68,16 +68,25 @@ class TreeSitterAnalyzer:
         if node.type in ["import_from_statement", "import_statement"]:
             results["imports"].append(content[node.start_byte:node.end_byte].decode("utf-8"))
         elif node.type == "function_definition":
-            # Extract name child
+            func_data = {"name": None, "decorators": [], "parameters": []}
             for child in node.children:
                 if child.type == "identifier":
-                    results["functions"].append(content[child.start_byte:child.end_byte].decode("utf-8"))
-                    break
+                    func_data["name"] = content[child.start_byte:child.end_byte].decode("utf-8")
+                elif child.type == "parameters":
+                    func_data["parameters"] = content[child.start_byte:child.end_byte].decode("utf-8")
+                elif child.type == "decorator":
+                    func_data["decorators"].append(content[child.start_byte:child.end_byte].decode("utf-8"))
+            results["functions"].append(func_data)
         elif node.type == "class_definition":
+            class_data = {"name": None, "bases": [], "decorators": []}
             for child in node.children:
                 if child.type == "identifier":
-                    results["classes"].append(content[child.start_byte:child.end_byte].decode("utf-8"))
-                    break
+                    class_data["name"] = content[child.start_byte:child.end_byte].decode("utf-8")
+                elif child.type == "argument_list": # Bases in Python are in the argument list
+                    class_data["bases"] = [content[c.start_byte:c.end_byte].decode("utf-8") for c in child.children if c.type == "identifier"]
+                elif child.type == "decorator":
+                    class_data["decorators"].append(content[child.start_byte:child.end_byte].decode("utf-8"))
+            results["classes"].append(class_data)
 
         if cursor.goto_first_child():
             self._traverse(cursor, content, results)

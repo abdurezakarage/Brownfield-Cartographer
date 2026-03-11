@@ -14,7 +14,11 @@ class GraphStorage:
             node.id, 
             type=node.type, 
             name=node.name, 
-            path=node.path, 
+            path=node.path,
+            change_velocity_30d=node.change_velocity_30d,
+            is_dead_code_candidate=node.is_dead_code_candidate,
+            purpose_statement=node.purpose_statement,
+            domain_cluster=node.domain_cluster,
             **extra_props
         )
 
@@ -30,13 +34,21 @@ class GraphStorage:
     def serialize(self) -> str:
         nodes = []
         for n, d in self.graph.nodes(data=True):
-            reserved = ["type", "name", "path"]
+            reserved = [
+                "type", "name", "path", 
+                "change_velocity_30d", "is_dead_code_candidate", 
+                "purpose_statement", "domain_cluster"
+            ]
             properties = {k: v for k, v in d.items() if k not in reserved}
             nodes.append(NodeBase(
                 id=str(n),
                 type=d.get("type"),
                 name=d.get("name"),
                 path=d.get("path"),
+                change_velocity_30d=d.get("change_velocity_30d", 0.0),
+                is_dead_code_candidate=d.get("is_dead_code_candidate", False),
+                purpose_statement=d.get("purpose_statement"),
+                domain_cluster=d.get("domain_cluster"),
                 properties=properties
             ))
         

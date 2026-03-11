@@ -15,6 +15,13 @@ class NodeBase(BaseModel):
     type: NodeType
     name: str
     path: Optional[str] = None
+    
+    # Analytical Metadata
+    change_velocity_30d: float = 0.0
+    is_dead_code_candidate: bool = False
+    purpose_statement: Optional[str] = None
+    domain_cluster: Optional[str] = None
+    
     properties: Dict[str, Any] = Field(default_factory=dict)
 
 class EdgeType(str, Enum):

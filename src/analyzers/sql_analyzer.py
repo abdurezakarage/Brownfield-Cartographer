@@ -15,6 +15,16 @@ class SQLAnalyzer:
         }
         
         try:
+            # Basic dbt pattern matching (since Jinja isn't rendered here)
+            import re
+            refs = re.findall(r"ref\(['\"](.+?)['\"]\)", sql_content)
+            for r in refs:
+                dependencies["sources"].add(r.lower())
+            
+            sources = re.findall(r"source\(['\"].+?['\"]\s*,\s*['\"](.+?)['\"]\)", sql_content)
+            for s in sources:
+                dependencies["sources"].add(s.lower())
+
             expressions = sqlglot.parse(sql_content, read=dialect)
             for expression in expressions:
                 # Extract CTEs first so we can exclude them from sources
@@ -40,7 +50,9 @@ class SQLAnalyzer:
             dependencies["sources"] -= dependencies["ctes"]
             
         except Exception as e:
-            return {"error": str(e), "sources": [], "targets": []}
+            # Log and skip gracefully as per rubric
+            print(f"Warning: Could not parse SQL: {e}")
+            return {"error": str(e), "sources": list(dependencies["sources"]), "targets": []}
 
         return {
             "sources": list(dependencies["sources"]),

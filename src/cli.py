@@ -10,8 +10,32 @@ def main():
     parser.add_argument("--output-dir", type=str, default="analysis_output", help="Directory to save analysis results")
     args = parser.parse_args()
 
-    repo_path = os.path.abspath(args.repo_path)
+    repo_path = args.repo_path
     output_dir = os.path.abspath(args.output_dir)
+    
+    # Check if repo_path is a GitHub URL
+    if repo_path.startswith(("http://", "https://", "git@")):
+        print(f"[*] Detecting remote repository: {repo_path}")
+        temp_dir = os.path.join(output_dir, "cloned_repo")
+        if os.path.exists(temp_dir):
+            import shutil
+            import stat
+            def on_rm_error(func, path, exc_info):
+                # path is the file that failed to be removed
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            shutil.rmtree(temp_dir, onerror=on_rm_error)
+        
+        import subprocess
+        print(f"[*] Cloning repository to {temp_dir}...")
+        try:
+            subprocess.run(["git", "clone", repo_path, temp_dir], check=True)
+            repo_path = temp_dir
+        except subprocess.CalledProcessError as e:
+            print(f"[!] Error cloning repository: {e}")
+            return
+
+    repo_path = os.path.abspath(repo_path)
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -36,12 +60,16 @@ def main():
     print("[*] Running Hydrologist Agent...")
     hydrologist = HydrologistAgent()
     
-    # Look for SQL files to build lineage
+    # Look for files to build lineage
     for root, _, files in os.walk(repo_path):
         for file in files:
+            file_path = os.path.join(root, file)
             if file.endswith(".sql"):
-                sql_path = os.path.join(root, file)
-                hydrologist.ingest_sql_file(sql_path)
+                hydrologist.ingest_sql_file(file_path)
+            elif file.endswith((".yaml", ".yml")):
+                hydrologist.ingest_yaml_pipeline(file_path)
+            elif file.endswith(".py"):
+                hydrologist.ingest_python_file(file_path)
     
     # Serialize Hydrologist's Lineage Graph
     lineage_graph_path = os.path.join(output_dir, "lineage_graph.json")
