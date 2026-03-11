@@ -46,9 +46,7 @@ class TreeSitterAnalyzer:
             "functions": [],
             "classes": []
         }
-        # In a real implementation, we'd use specific queries per language
-        # For the interim, we'll use a generic traversal or basic queries if possible
-        
+      
         # Example Query-based extraction for Python (if tree_sitter supports it here)
         if lang == "python":
             query_str = """
